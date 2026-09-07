@@ -1,0 +1,13 @@
+<svg viewBox="0 0 260 56" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Riskline">
+  <text font-family="'Space Grotesk', sans-serif" font-weight="600" font-size="34" fill="#EDE6D8">
+    <tspan x="10" y="42">r</tspan>
+    <tspan x="40" y="42">i</tspan>
+    <tspan x="70" y="42">s</tspan>
+    <tspan x="100" y="42">k</tspan>
+    <tspan x="130" y="42">l</tspan>
+    <tspan x="160" y="42">&#305;</tspan>
+    <tspan x="190" y="42">n</tspan>
+    <tspan x="220" y="42">e</tspan>
+  </text>
+  <circle cx="168" cy="18" r="4.5" fill="#E8A93B" />
+</svg>

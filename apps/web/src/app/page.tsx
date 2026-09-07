@@ -11,9 +11,7 @@ export default async function HomePage() {
     <main style={{ padding: "2rem", fontFamily: "sans-serif" }}>
       <h1>Portfolio Risk &amp; Correlation Analyzer</h1>
       <p>
-        Session 1 scaffold — core infra only. Portfolio data, correlation
-        engine, and Agent OS connection land in later sessions per
-        BUILD_ROADMAP.md.
+        <Link href="/dashboard">Go to the dashboard →</Link>
       </p>
 
       {user ? (

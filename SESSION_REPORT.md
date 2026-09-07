@@ -386,3 +386,165 @@ mainnet, or any live action.
   `RiskReport` numbers into the plain-English narrative — nothing here depends on that existing yet.
 
 **Style history:** N/A — no design work this session (Session 4 is the first UI session).
+
+---
+
+## Session 4: Dashboard UI & Risk Narrative
+**Date:** 2026-09-06
+**Goal:** Build the dashboard UI and wire up Kimi (via Hugging Face Inference) for the plain-English risk narrative.
+
+**Section 8 design process followed in full, including the Step 5 human checkpoint** — token
+system + wireframe presented in chat and explicitly approved before any code was written. Style
+history entry below (8.2).
+
+**Kimi/Hugging Face verified before writing the client (not assumed):** searched and confirmed
+Hugging Face's Inference Providers router (`https://router.huggingface.co/v1`, OpenAI-compatible
+chat completions, bearer auth with an HF token) actually serves Kimi checkpoints
+(`moonshotai/Kimi-K2-Instruct` and newer, via backend providers like Together AI/DeepInfra). Model
+id is configurable via `HF_KIMI_MODEL` rather than hardcoded, since which exact Kimi
+checkpoint/provider pairing is available can shift.
+
+**A real bug caught by verification this session:** the dashboard's fetch/fallback logic (try real
+snapshot → fall back to sample on 404) was extracted and run against mocked responses. Three cases
+passed immediately; a fourth — a non-404 error response with a useful message (e.g. `HF_TOKEN is
+not set`) — initially got swallowed into a generic "failed with status 500" instead of surfacing
+the real, actionable message. Fixed to parse the error body before falling back to a generic
+message, re-verified, now passes. This is exactly the kind of thing the ruleset's self-check rule
+exists to catch before it becomes a confusing first-run experience.
+
+**Files added/changed:**
+- `packages/config/design-tokens.ts` — the approved token system (colors, fonts, radii) [8.7 deliverable]
+- `packages/config/package.json` — expose `design-tokens.ts`
+- `apps/web/tailwind.config.ts` — rewritten to source colors/radii from `design-tokens.ts`
+- `apps/web/src/app/layout.tsx` — Space Grotesk + IBM Plex Sans via `next/font/google`, dark theme applied
+- `apps/web/src/app/globals.css` — reduced-motion + focus-visible base rules [8.5 quality floor]
+- `apps/web/public/logo.svg` — Riskline wordmark, committed SVG [8.7 deliverable]
+- `packages/ui/src/logo.tsx`, `cn.ts`, `button.tsx`, `card.tsx`, `gauge.tsx`,
+  `correlation-cluster-map.tsx`, `holdings-list.tsx`, `narrative-panel.tsx`, `index.ts` — filled in
+  the Session 1 placeholder package with real components
+- `packages/ui/package.json` — added `class-variance-authority`, `clsx`, `tailwind-merge`, `@repo/types`
+- `apps/api/src/lib/kimi.ts` — `generateRiskNarrative()` via HF Inference Providers router
+- `apps/api/src/routes/risk.ts` — rewritten with shared snapshot-loading helpers; added
+  `GET /risk/sample/narrative` and `GET /risk/latest/narrative`
+- `apps/api/.env.example` — added `HF_TOKEN`, `HF_KIMI_MODEL`
+- `apps/web/src/app/dashboard/page.tsx` — the actual dashboard: gauges, correlation cluster map,
+  holdings, narrative panel, real/sample fallback, loading/error states
+- `apps/web/src/app/page.tsx` — links to `/dashboard`
+
+**Style history entry (8.2):**
+```markdown
+**Palette family:** deep indigo + panel navy base, instrument amber primary accent, coral/teal
+  semantic pair for correlation risk/safety
+**Type pairing:** Space Grotesk display / IBM Plex Sans body
+**Layout paradigm:** instrument-panel dashboard — top gauge strip, split correlation map + holdings,
+  narrative panel below; no sidebar nav
+**Signature element:** correlation cluster map — assets as nodes, edges colored/weighted by
+  correlation strength, instead of a flat heatmap grid
+**Logo approach:** typographic wordmark "riskline", fixed letter-spacing, dot of the second "i"
+  replaced with an amber node
+```
+
+**Current full file tree:**
+```
+.github/workflows/ci.yml
+.gitignore
+README.md
+SESSION_REPORT.md
+apps/api/.env.example
+apps/api/Dockerfile
+apps/api/package.json
+apps/api/src/fixtures/sample-snapshot.json
+apps/api/src/index.ts
+apps/api/src/lib/ingest.ts
+apps/api/src/lib/kimi.ts
+apps/api/src/lib/risk/compute.ts
+apps/api/src/lib/risk/stats.ts
+apps/api/src/lib/schemas.ts
+apps/api/src/lib/supabase.ts
+apps/api/src/routes/health.ts
+apps/api/src/routes/ingest.ts
+apps/api/src/routes/risk.ts
+apps/api/src/scripts/ingest-from-file.ts
+apps/api/src/scripts/test-risk-engine.ts
+apps/api/tsconfig.json
+apps/web/.env.example
+apps/web/next-env.d.ts
+apps/web/next.config.js
+apps/web/package.json
+apps/web/postcss.config.js
+apps/web/public/logo.svg
+apps/web/src/app/dashboard/page.tsx
+apps/web/src/app/globals.css
+apps/web/src/app/layout.tsx
+apps/web/src/app/login/page.tsx
+apps/web/src/app/page.tsx
+apps/web/src/app/sign-out-button.tsx
+apps/web/src/app/signup/page.tsx
+apps/web/src/lib/supabase/client.ts
+apps/web/src/lib/supabase/server.ts
+apps/web/src/middleware.ts
+apps/web/tailwind.config.ts
+apps/web/tsconfig.json
+docs/agent-os-data-pull-prompt.md
+package.json
+packages/config/design-tokens.ts
+packages/config/eslint-preset.js
+packages/config/package.json
+packages/config/tsconfig.base.json
+packages/types/package.json
+packages/types/src/index.ts
+packages/ui/package.json
+packages/ui/src/button.tsx
+packages/ui/src/card.tsx
+packages/ui/src/cn.ts
+packages/ui/src/correlation-cluster-map.tsx
+packages/ui/src/gauge.tsx
+packages/ui/src/holdings-list.tsx
+packages/ui/src/index.ts
+packages/ui/src/logo.tsx
+packages/ui/src/narrative-panel.tsx
+pnpm-workspace.yaml
+supabase/migrations/0001_portfolio_snapshots.sql
+turbo.json
+```
+(regenerated via `find`, not typed from memory)
+
+**Dependencies installed:** `class-variance-authority@^0.7.0`, `clsx@^2.1.1`, `tailwind-merge@^2.5.2`
+(all `packages/ui`) — no new deps in `apps/web` or `apps/api` beyond what's already declared. Still
+no real `pnpm install` run in a networked environment — this is now the fourth session carrying that
+same caveat; it needs to happen before trusting any of this actually builds.
+
+**Supabase schema state:** unchanged from Session 2.
+
+**Env vars required (additions this session):** `apps/api`: `HF_TOKEN`, `HF_KIMI_MODEL` (optional).
+
+**Agent OS mode / Sub-account scope / Decision log:** unchanged — nothing in this session touches
+Binance, mainnet, or any live action. Kimi calls go to Hugging Face only.
+
+**API endpoints live:**
+- `GET /health`, `POST /ingest/portfolio-snapshot`, `GET /risk/latest` — unchanged
+- `GET /risk/sample/narrative`, `GET /risk/latest/narrative` — report + Kimi narrative together
+
+**Known stubs/mocks/TODOs:**
+- Everything carried over from Sessions 1–3 (pnpm install unverified, no real Supabase project or
+  Agent OS pull done yet).
+- The dashboard has not been visually rendered in a real browser (no network in this sandbox to run
+  `next dev`) — the fetch/fallback control-flow logic was verified directly (see above), and the SVG
+  geometry (gauge arc, cluster map node placement) was hand-checked but not screenshot-verified.
+  **Run `pnpm dev` and actually look at `/dashboard` before trusting the visual result** — this is
+  the Step 7 second critique from Section 8.1, and it could not be completed in this sandbox.
+- `HF_KIMI_MODEL` default (`moonshotai/Kimi-K2-Instruct`) may need pinning to a specific
+  `:provider` suffix depending on what's live on your HF account when you actually call it.
+- Narrative generation blocks the whole dashboard's loading state (single combined fetch) rather
+  than streaming in after the numbers — a deliberate simplicity trade-off given the timeline, not
+  an oversight.
+
+**Assumptions carried into next session:**
+- Session 5 (Polish & Submission) should start with actually running `pnpm install` and `pnpm dev`
+  for the first time in a real environment — every session so far has built on unverified
+  dependency resolution and an unrendered UI. This is the highest-risk carried assumption in the
+  whole project at this point.
+- Once real data exists (Agent OS pull → ingest), the dashboard needs no code changes — it already
+  prefers `/risk/latest/narrative` over the sample fallback automatically.
+
+**Style history:** entry added above.

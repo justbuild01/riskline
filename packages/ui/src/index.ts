@@ -1,6 +1,8 @@
-/**
- * Placeholder. Real shared components (shadcn/ui primitives themed with this
- * project's design tokens, per ruleset Section 8) get added during the
- * dedicated UI session — not invented here ahead of that work.
- */
-export const UI_PACKAGE_READY = true;
+export { cn } from "./cn";
+export { Button, type ButtonProps } from "./button";
+export { Card, CardHeader, CardTitle, CardContent } from "./card";
+export { Logo } from "./logo";
+export { Gauge, type GaugeProps } from "./gauge";
+export { CorrelationClusterMap } from "./correlation-cluster-map";
+export { HoldingsList } from "./holdings-list";
+export { NarrativePanel, type NarrativeStatus } from "./narrative-panel";

@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "private": true,
   "main": "eslint-preset.js",
-  "files": ["eslint-preset.js", "tsconfig.base.json"]
+  "files": ["eslint-preset.js", "tsconfig.base.json", "design-tokens.ts"]
 }

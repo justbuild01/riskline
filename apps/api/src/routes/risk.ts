@@ -4,28 +4,19 @@ import { Router } from "express";
 import type { ApiResponse, PortfolioSnapshotRecord, RiskReport } from "@repo/types";
 import { getSupabase } from "../lib/supabase";
 import { computeRiskReport } from "../lib/risk/compute";
+import { generateRiskNarrative } from "../lib/kimi";
 
 export const riskRouter = Router();
 
-/** Demo/dev endpoint: runs the fixed sample fixture through the risk engine. No DB needed. */
-riskRouter.get("/sample", (_req, res) => {
+function loadSampleSnapshot(): PortfolioSnapshotRecord {
   const fixturePath = join(__dirname, "..", "fixtures", "sample-snapshot.json");
-  const snapshot: PortfolioSnapshotRecord = JSON.parse(readFileSync(fixturePath, "utf-8"));
-  const report = computeRiskReport(snapshot);
-  const body: ApiResponse<RiskReport> = { ok: true, data: report };
-  res.json(body);
-});
+  return JSON.parse(readFileSync(fixturePath, "utf-8"));
+}
 
-/** Real endpoint: computes risk for the most recent ingested snapshot. */
-riskRouter.get("/latest", async (_req, res) => {
+async function loadLatestSnapshotForUser(): Promise<PortfolioSnapshotRecord | null> {
   const userId = process.env.TARGET_USER_ID;
   if (!userId) {
-    const body: ApiResponse<never> = {
-      ok: false,
-      error: { message: "TARGET_USER_ID is not configured on the server" },
-    };
-    res.status(500).json(body);
-    return;
+    throw new Error("TARGET_USER_ID is not configured on the server");
   }
 
   const supabase = getSupabase();
@@ -37,29 +28,10 @@ riskRouter.get("/latest", async (_req, res) => {
     .limit(1)
     .maybeSingle();
 
-  if (error) {
-    console.error("failed to fetch latest snapshot:", error);
-    const body: ApiResponse<never> = {
-      ok: false,
-      error: { message: "internal error fetching latest snapshot" },
-    };
-    res.status(500).json(body);
-    return;
-  }
+  if (error) throw new Error(`internal error fetching latest snapshot: ${error.message}`);
+  if (!data) return null;
 
-  if (!data) {
-    const body: ApiResponse<never> = {
-      ok: false,
-      error: {
-        message: "no snapshot found for this user yet — run the ingest step first",
-        code: "NO_SNAPSHOT",
-      },
-    };
-    res.status(404).json(body);
-    return;
-  }
-
-  const snapshot: PortfolioSnapshotRecord = {
+  return {
     id: data.id,
     userId: data.user_id,
     createdAt: data.created_at,
@@ -68,8 +40,82 @@ riskRouter.get("/latest", async (_req, res) => {
     holdings: data.holdings,
     marketData: data.market_data,
   };
+}
 
-  const report = computeRiskReport(snapshot);
+/** Demo/dev endpoint: runs the fixed sample fixture through the risk engine. No DB needed. */
+riskRouter.get("/sample", (_req, res) => {
+  const report = computeRiskReport(loadSampleSnapshot());
   const body: ApiResponse<RiskReport> = { ok: true, data: report };
   res.json(body);
+});
+
+/** Real endpoint: computes risk for the most recent ingested snapshot. */
+riskRouter.get("/latest", async (_req, res) => {
+  try {
+    const snapshot = await loadLatestSnapshotForUser();
+    if (!snapshot) {
+      const body: ApiResponse<never> = {
+        ok: false,
+        error: { message: "no snapshot found yet — run the ingest step first", code: "NO_SNAPSHOT" },
+      };
+      res.status(404).json(body);
+      return;
+    }
+    const report = computeRiskReport(snapshot);
+    const body: ApiResponse<RiskReport> = { ok: true, data: report };
+    res.json(body);
+  } catch (err) {
+    console.error("GET /risk/latest failed:", err);
+    const body: ApiResponse<never> = { ok: false, error: { message: "internal error" } };
+    res.status(500).json(body);
+  }
+});
+
+/** Sample snapshot + Kimi narrative together — no DB or Binance data needed, good for UI dev. */
+riskRouter.get("/sample/narrative", async (_req, res) => {
+  try {
+    const report = computeRiskReport(loadSampleSnapshot());
+    const narrative = await generateRiskNarrative(report);
+    const body: ApiResponse<{ report: RiskReport; narrative: string }> = {
+      ok: true,
+      data: { report, narrative },
+    };
+    res.json(body);
+  } catch (err) {
+    console.error("GET /risk/sample/narrative failed:", err);
+    const body: ApiResponse<never> = {
+      ok: false,
+      error: { message: err instanceof Error ? err.message : "internal error" },
+    };
+    res.status(500).json(body);
+  }
+});
+
+/** Real snapshot + Kimi narrative together. */
+riskRouter.get("/latest/narrative", async (_req, res) => {
+  try {
+    const snapshot = await loadLatestSnapshotForUser();
+    if (!snapshot) {
+      const body: ApiResponse<never> = {
+        ok: false,
+        error: { message: "no snapshot found yet — run the ingest step first", code: "NO_SNAPSHOT" },
+      };
+      res.status(404).json(body);
+      return;
+    }
+    const report = computeRiskReport(snapshot);
+    const narrative = await generateRiskNarrative(report);
+    const body: ApiResponse<{ report: RiskReport; narrative: string }> = {
+      ok: true,
+      data: { report, narrative },
+    };
+    res.json(body);
+  } catch (err) {
+    console.error("GET /risk/latest/narrative failed:", err);
+    const body: ApiResponse<never> = {
+      ok: false,
+      error: { message: err instanceof Error ? err.message : "internal error" },
+    };
+    res.status(500).json(body);
+  }
 });
