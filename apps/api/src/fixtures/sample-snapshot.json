@@ -1,0 +1,125 @@
+{
+  "id": "sample-snapshot",
+  "userId": "sample-user",
+  "createdAt": "2026-09-06T06:02:02.825Z",
+  "snapshotTakenAt": "2026-09-06T06:02:02.825Z",
+  "accountMode": "testnet",
+  "holdings": [
+    {
+      "asset": "BTC",
+      "free": 0.5,
+      "locked": 0,
+      "usdValue": 33000
+    },
+    {
+      "asset": "ETH",
+      "free": 5,
+      "locked": 0,
+      "usdValue": 16750
+    },
+    {
+      "asset": "USDT",
+      "free": 5000,
+      "locked": 0,
+      "usdValue": 5000
+    },
+    {
+      "asset": "SOL",
+      "free": 20,
+      "locked": 0,
+      "usdValue": 3000
+    }
+  ],
+  "marketData": [
+    {
+      "symbol": "BTCUSDT",
+      "series": [
+        {
+          "timestamp": "2026-08-27T00:00:00.000Z",
+          "close": 60000
+        },
+        {
+          "timestamp": "2026-08-28T00:00:00.000Z",
+          "close": 61000
+        },
+        {
+          "timestamp": "2026-08-29T00:00:00.000Z",
+          "close": 60500
+        },
+        {
+          "timestamp": "2026-08-30T00:00:00.000Z",
+          "close": 62000
+        },
+        {
+          "timestamp": "2026-08-31T00:00:00.000Z",
+          "close": 63000
+        },
+        {
+          "timestamp": "2026-09-01T00:00:00.000Z",
+          "close": 62500
+        },
+        {
+          "timestamp": "2026-09-02T00:00:00.000Z",
+          "close": 64000
+        },
+        {
+          "timestamp": "2026-09-03T00:00:00.000Z",
+          "close": 65000
+        },
+        {
+          "timestamp": "2026-09-04T00:00:00.000Z",
+          "close": 64500
+        },
+        {
+          "timestamp": "2026-09-05T00:00:00.000Z",
+          "close": 66000
+        }
+      ]
+    },
+    {
+      "symbol": "ETHUSDT",
+      "series": [
+        {
+          "timestamp": "2026-08-27T00:00:00.000Z",
+          "close": 3000
+        },
+        {
+          "timestamp": "2026-08-28T00:00:00.000Z",
+          "close": 3050
+        },
+        {
+          "timestamp": "2026-08-29T00:00:00.000Z",
+          "close": 3020
+        },
+        {
+          "timestamp": "2026-08-30T00:00:00.000Z",
+          "close": 3100
+        },
+        {
+          "timestamp": "2026-08-31T00:00:00.000Z",
+          "close": 3180
+        },
+        {
+          "timestamp": "2026-09-01T00:00:00.000Z",
+          "close": 3150
+        },
+        {
+          "timestamp": "2026-09-02T00:00:00.000Z",
+          "close": 3250
+        },
+        {
+          "timestamp": "2026-09-03T00:00:00.000Z",
+          "close": 3300
+        },
+        {
+          "timestamp": "2026-09-04T00:00:00.000Z",
+          "close": 3260
+        },
+        {
+          "timestamp": "2026-09-05T00:00:00.000Z",
+          "close": 3350
+        }
+      ]
+    }
+  ]
+}

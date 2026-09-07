@@ -263,3 +263,126 @@ transfer, or withdrawal tool. No such capability exists in `apps/api`'s own code
   up with Binance Agent OS connected (one-time OAuth) — not verified as done yet.
 
 **Style history:** N/A — no design work this session.
+
+---
+
+## Session 3: Risk & Correlation Engine
+**Date:** 2026-09-06
+**Goal:** Compute concentration risk, pairwise correlation, and volatility exposure from an ingested snapshot; expose via `apps/api`.
+
+**Verification actually performed this session (unlike Session 2, this one could be fully run):**
+The core math (returns, stddev, Pearson correlation, HHI, weighted-covariance portfolio variance) was
+prototyped and checked against known-answer cases in plain JS first — identical series → correlation
+1.0, inverse series → −1.0, uncorrelated equal-vol 50/50 → variance is exactly half of fully-correlated
+50/50, negatively-correlated 50/50 → variance 0. All matched expected values before being written into
+the real TypeScript files. The actual `compute.ts`/`stats.ts` files were then run (via Node's
+`--experimental-strip-types`, no build step needed) against a 4-asset fixture (BTC, ETH, USDT, a
+deliberately-missing-data SOL) covering every branch: normal correlated pair, stablecoin treated as
+0-vol (not "missing"), a genuinely missing-data asset excluded from vol/correlation but still counted
+in concentration weight, and weight renormalization when coverage is partial. All 8 checks passed —
+full output and checks are reproducible via `pnpm --filter api test:risk-engine`.
+
+**Files added/changed:**
+- `packages/types/src/index.ts` — added `RiskWarning`, `AssetRiskDetail`, `CorrelationEntry`, `RiskReport`
+- `apps/api/src/lib/risk/stats.ts` — `toReturns`, `mean`, `stddev`, `pearsonCorrelation` (pure, no deps)
+- `apps/api/src/lib/risk/compute.ts` — `computeRiskReport()`: HHI/concentration, effective asset count,
+  per-asset annualized volatility, pairwise correlation (timestamp-aligned), full weighted-covariance
+  portfolio volatility, stablecoin vs. missing-data distinction, coverage warnings
+- `apps/api/src/fixtures/sample-snapshot.json` — the verification fixture (also valid `ingest` input —
+  doubles as the Session 2 "test the pipeline before real data" fixture that was still outstanding)
+- `apps/api/src/scripts/test-risk-engine.ts` — `pnpm --filter api test:risk-engine`, reproduces this
+  session's verification
+- `apps/api/src/routes/risk.ts` — `GET /risk/sample` (fixture, no DB needed) and `GET /risk/latest`
+  (real: fetches the newest snapshot for `TARGET_USER_ID`, computes, returns)
+- `apps/api/src/index.ts` — mounted the risk router
+- `apps/api/package.json` — added `test:risk-engine` script
+
+**Current full file tree:**
+```
+.github/workflows/ci.yml
+.gitignore
+README.md
+SESSION_REPORT.md
+apps/api/.env.example
+apps/api/Dockerfile
+apps/api/package.json
+apps/api/src/fixtures/sample-snapshot.json
+apps/api/src/index.ts
+apps/api/src/lib/ingest.ts
+apps/api/src/lib/risk/compute.ts
+apps/api/src/lib/risk/stats.ts
+apps/api/src/lib/schemas.ts
+apps/api/src/lib/supabase.ts
+apps/api/src/routes/health.ts
+apps/api/src/routes/ingest.ts
+apps/api/src/routes/risk.ts
+apps/api/src/scripts/ingest-from-file.ts
+apps/api/src/scripts/test-risk-engine.ts
+apps/api/tsconfig.json
+apps/web/.env.example
+apps/web/next-env.d.ts
+apps/web/next.config.js
+apps/web/package.json
+apps/web/postcss.config.js
+apps/web/src/app/globals.css
+apps/web/src/app/layout.tsx
+apps/web/src/app/login/page.tsx
+apps/web/src/app/page.tsx
+apps/web/src/app/sign-out-button.tsx
+apps/web/src/app/signup/page.tsx
+apps/web/src/lib/supabase/client.ts
+apps/web/src/lib/supabase/server.ts
+apps/web/src/middleware.ts
+apps/web/tailwind.config.ts
+apps/web/tsconfig.json
+docs/agent-os-data-pull-prompt.md
+package.json
+packages/config/eslint-preset.js
+packages/config/package.json
+packages/config/tsconfig.base.json
+packages/types/package.json
+packages/types/src/index.ts
+packages/ui/package.json
+packages/ui/src/index.ts
+pnpm-workspace.yaml
+supabase/migrations/0001_portfolio_snapshots.sql
+turbo.json
+```
+(regenerated via `find`, not typed from memory)
+
+**Dependencies installed:** none new — the risk engine is pure TypeScript, no math/stats library needed.
+Still no real `pnpm install` run in a networked environment (carried over from Sessions 1–2).
+
+**Supabase schema state:** unchanged from Session 2.
+
+**Env vars required:** unchanged from Session 2 — the risk engine reads what's already in the DB.
+
+**Agent OS mode:** unchanged — N/A, no code in this repo calls Binance directly.
+
+**Sub-account scope & limits:** unchanged from Session 2 — nothing in this session touches Binance,
+mainnet, or any live action.
+
+**Decision log:** none — read-only computation on already-stored data, no live/trade/payment/on-chain action.
+
+**API endpoints live:**
+- `GET /health`, `POST /ingest/portfolio-snapshot` — unchanged from Sessions 1–2
+- `GET /risk/sample` — runs the fixture through the risk engine, no DB or real data required
+- `GET /risk/latest` — computes risk for the most recent snapshot belonging to `TARGET_USER_ID`;
+  `404` with code `NO_SNAPSHOT` if none exists yet
+
+**Known stubs/mocks/TODOs:**
+- Everything carried over from Sessions 1–2 (pnpm install unverified in a real environment, no real
+  Supabase project yet, `packages/ui` still a placeholder, real Agent OS pull not yet performed).
+- Correlation and portfolio volatility use daily-close data only; no consideration of intraday
+  volatility or fees/slippage — reasonable for a risk-narrative demo, worth stating plainly if asked.
+- `findSeriesForAsset` assumes a direct `<ASSET>USDT` pair; an asset only priced against BTC or another
+  quote currency would be silently treated as missing data (correctly flagged via `MISSING_PRICE_DATA`,
+  just worth knowing this is the reason, not a bug, if it comes up with an unusual holding).
+
+**Assumptions carried into next session:**
+- Session 4 (Dashboard UI & Risk Narrative) can call `GET /risk/sample` immediately to build/style the
+  UI without needing a real Agent OS pull done first, and switch to `GET /risk/latest` once one exists.
+- Session 4 is where Kimi (Hugging Face Inference) actually gets wired up, turning this session's
+  `RiskReport` numbers into the plain-English narrative — nothing here depends on that existing yet.
+
+**Style history:** N/A — no design work this session (Session 4 is the first UI session).

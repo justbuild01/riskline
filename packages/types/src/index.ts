@@ -58,3 +58,41 @@ export interface PortfolioSnapshotRecord extends PortfolioSnapshotInput {
   userId: string;
   createdAt: string;
 }
+
+/**
+ * Session 3: risk/correlation engine output. Computed from a stored
+ * PortfolioSnapshotRecord — see apps/api/src/lib/risk/compute.ts.
+ */
+
+export interface RiskWarning {
+  code: string;
+  message: string;
+}
+
+export interface AssetRiskDetail {
+  asset: string;
+  weight: number; // usdValue / totalUsdValue
+  usdValue: number;
+  volatility: number | null; // annualized stddev of daily returns; null if unavailable
+  hasReturnData: boolean;
+  isStablecoin: boolean;
+}
+
+export interface CorrelationEntry {
+  assetA: string;
+  assetB: string;
+  correlation: number; // -1..1
+}
+
+export interface RiskReport {
+  snapshotId: string;
+  snapshotTakenAt: string;
+  totalUsdValue: number;
+  assets: AssetRiskDetail[];
+  herfindahlIndex: number; // 0..1, higher = more concentrated
+  effectiveAssetCount: number; // 1 / HHI — intuitive "how many equal-sized assets" read
+  topHolding: { asset: string; weight: number };
+  portfolioVolatility: number | null; // annualized, weighted + correlation-adjusted
+  correlations: CorrelationEntry[];
+  warnings: RiskWarning[];
+}
