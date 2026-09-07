@@ -7,14 +7,16 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ingest": "tsx src/scripts/ingest-from-file.ts"
   },
   "dependencies": {
     "@repo/types": "workspace:*",
     "@supabase/supabase-js": "^2.45.4",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.21.0"
+    "express": "^4.21.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

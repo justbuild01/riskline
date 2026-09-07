@@ -106,3 +106,160 @@ turbo.json
 - Assumes Track A entry mechanics (video + GitHub repo) haven't changed since Session 0's research — worth a final check against the official entry form before Session 5 (submission).
 
 **Style history:** N/A — no design work done this session (first UI session is Session 4).
+
+---
+
+## Session 2: Agent OS Connection & Data Ingestion
+**Date:** 2026-09-06
+**Goal:** Get a real portfolio + market data snapshot from Binance Agent OS into Supabase. Also the
+designated Section 9.2 go-live session (real mainnet, read-only), per an explicit human decision
+made in chat this session.
+
+**Major finding — architecture correction (read this before touching apps/api's Binance-related code):**
+The Session 0/1 assumption that `apps/api` would be its own MCP client, calling
+`https://agent.binance.com/mcp/agentic` directly with a stored API key/secret, is **wrong**. Fetched
+Binance's actual MCP Server docs directly this session
+(`https://developers.binance.com/en/docs/agent-native/mcp-server/agentic`): the server is only
+reachable through its own OAuth-registered AI client apps — Claude Code, Claude Desktop, Codex CLI,
+ChatGPT (web + desktop), VS Code, Grok Bot — via a one-time per-user OAuth consent screen. The docs
+explicitly warn against pasting the endpoint into arbitrary tools. A hand-rolled Express client with
+`BINANCE_API_KEY`/`SECRET` env vars (the pattern seen in several *unofficial* community Binance MCP
+projects found during research) does not match how the real, official product works.
+**Corrected architecture:** `apps/api` never talks to Binance. A human runs an actual supported
+client (prompt + workflow in `docs/agent-os-data-pull-prompt.md`) to pull a snapshot as JSON, saves
+it to a file, and loads it with `pnpm --filter api ingest ./snapshot.json`. Separately, the user
+specified Kimi via Hugging Face Inference as the only LLM available for use — no hackathon rule was
+found requiring this (checked), so it's treated as a personal resource constraint. This splits
+cleanly: Kimi is only ever used for the plain-English narrative step in Session 4 (numbers → text,
+plain HTTP call to HF Inference), which has no need to touch Binance or MCP at all.
+
+**Go-live documentation (Section 9.2):**
+- **Explicit human sign-off:** recorded in chat this session — user chose "Real mainnet holdings,
+  read-only" over a testnet-seeded portfolio, after being told this triggers the 9.2 gate.
+- **Testnet run of the same logic:** Binance Agent OS does not appear to expose a distinct
+  testnet mode separate from the real OAuth-connected mainnet sub-account (not found in the docs
+  fetched this session) — unlike the classic Binance REST API's separate testnet.binance.vision.
+  The practical equivalent used here: the ingest pipeline (validation + Supabase write) should be
+  tested with a hand-written sample JSON file matching the schema *before* running it against a
+  real Agent OS pull. **This has not been done yet in this session (no network access in this
+  sandbox to actually run it) — do this first, before the first real ingest.**
+- **Spend/position limits (Section 9.4):** not applicable in the literal sense — there is no code
+  path anywhere in `apps/api` that can place an order, move funds, or trigger a withdrawal. The
+  ingest route and CLI script only ever call Supabase inserts. This is enforced by that capability
+  simply not existing in the code, not by a runtime check on a limit value.
+- **Decision log:** no trade, payment, or on-chain action occurred or is possible this session —
+  only a read/store pipeline was built. The sign-off above is the only live/mainnet-relevant
+  decision this session made.
+
+**Files added/changed:**
+- `supabase/migrations/0001_portfolio_snapshots.sql` — `portfolio_snapshots` table (JSONB
+  `holdings`/`market_data` columns, RLS scoped to `user_id`)
+- `packages/types/src/index.ts` — added `PortfolioHolding`, `PricePoint`, `MarketSeries`,
+  `AccountMode`, `PortfolioSnapshotInput`, `PortfolioSnapshotRecord`
+- `apps/api/src/lib/schemas.ts` — Zod schemas mirroring the above, for runtime validation
+- `apps/api/src/lib/ingest.ts` — `ingestPortfolioSnapshot()`, shared by the route and the CLI script
+- `apps/api/src/routes/ingest.ts` — `POST /ingest/portfolio-snapshot`, gated by `x-ingest-secret` header
+- `apps/api/src/scripts/ingest-from-file.ts` — `pnpm --filter api ingest <file>` CLI
+- `apps/api/src/index.ts` — mounted the ingest router
+- `apps/api/package.json` — added `zod` dependency, added `ingest` script
+- `apps/api/.env.example` — added `TARGET_USER_ID`, `INGEST_SECRET`; removed the never-used
+  Binance env var placeholder note from Session 1 (no Binance vars exist in this app at all now)
+- `docs/agent-os-data-pull-prompt.md` — the actual prompt/workflow for pulling a snapshot via a
+  real Binance-supported AI client
+- `README.md` — architecture note explaining the correction above, updated setup steps
+
+**Current full file tree:**
+```
+.github/workflows/ci.yml
+.gitignore
+README.md
+SESSION_REPORT.md
+apps/api/.env.example
+apps/api/Dockerfile
+apps/api/package.json
+apps/api/src/index.ts
+apps/api/src/lib/ingest.ts
+apps/api/src/lib/schemas.ts
+apps/api/src/lib/supabase.ts
+apps/api/src/routes/health.ts
+apps/api/src/routes/ingest.ts
+apps/api/src/scripts/ingest-from-file.ts
+apps/api/tsconfig.json
+apps/web/.env.example
+apps/web/next-env.d.ts
+apps/web/next.config.js
+apps/web/package.json
+apps/web/postcss.config.js
+apps/web/src/app/globals.css
+apps/web/src/app/layout.tsx
+apps/web/src/app/login/page.tsx
+apps/web/src/app/page.tsx
+apps/web/src/app/sign-out-button.tsx
+apps/web/src/app/signup/page.tsx
+apps/web/src/lib/supabase/client.ts
+apps/web/src/lib/supabase/server.ts
+apps/web/src/middleware.ts
+apps/web/tailwind.config.ts
+apps/web/tsconfig.json
+docs/agent-os-data-pull-prompt.md
+package.json
+packages/config/eslint-preset.js
+packages/config/package.json
+packages/config/tsconfig.base.json
+packages/types/package.json
+packages/types/src/index.ts
+packages/ui/package.json
+packages/ui/src/index.ts
+pnpm-workspace.yaml
+supabase/migrations/0001_portfolio_snapshots.sql
+turbo.json
+```
+(regenerated via `find`, not typed from memory)
+
+**Dependencies installed:**
+- `zod@^3.23.8` — apps/api runtime validation for the ingest payload
+- Still not actually run through `pnpm install` in a real environment (same sandbox network
+  limitation as Session 1) — verify this alongside Session 1's dependency list on first real install.
+
+**Supabase schema state:**
+- One custom table now: `portfolio_snapshots` (see migration file above). RLS enabled, scoped to
+  `user_id`. Not yet applied to any real Supabase project — run the migration SQL via the Supabase
+  SQL editor before first ingest.
+
+**Env vars required (additions this session):**
+- `apps/api`: `TARGET_USER_ID` (single-user hackathon simplification, see `ingest.ts` comment),
+  `INGEST_SECRET` (only matters if calling the HTTP route directly instead of the CLI script)
+- Still no `BINANCE_*` vars anywhere in this codebase — confirmed intentional per this session's
+  architecture correction, not an oversight.
+
+**Agent OS mode:** Real mainnet, read-only. No Agent OS/MCP call is made by any code in this repo —
+it happens externally, in whichever AI client the builder runs per `docs/agent-os-data-pull-prompt.md`.
+
+**Sub-account scope & limits:** Read-only holdings + market data only. The prompt in
+`docs/agent-os-data-pull-prompt.md` explicitly instructs the agent never to call any order, trade,
+transfer, or withdrawal tool. No such capability exists in `apps/api`'s own code regardless.
+
+**API endpoints live:**
+- `GET /health` — unchanged from Session 1
+- `POST /ingest/portfolio-snapshot` — validates + stores a `PortfolioSnapshotInput`, requires
+  `x-ingest-secret` header matching `INGEST_SECRET`
+
+**Known stubs/mocks/TODOs:**
+- Everything carried over from Session 1 (pnpm install unverified, no real Supabase project yet,
+  `packages/ui` still a placeholder).
+- The ingest pipeline itself has not been tested with even a sample JSON file yet — do this before
+  the first real Agent OS pull (this session's testnet-equivalent verification step, not yet done).
+- `docs/agent-os-data-pull-prompt.md` asks the agent to skip assets without a direct USDT pair
+  rather than handling cross-conversion — fine for a demo, worth knowing if the real portfolio holds
+  an odd asset.
+
+**Assumptions carried into next session:**
+- Session 3 (Risk & Correlation Engine) reads `portfolio_snapshots.holdings` and `.market_data`
+  directly — no changes to this session's schema should be needed for basic concentration/volatility/
+  correlation math.
+- Session 4 is still the first time Kimi/Hugging Face Inference gets wired up — nothing from this
+  session depends on it existing yet.
+- Whoever runs the actual Agent OS pull needs Claude Code, Claude Desktop, or ChatGPT already set
+  up with Binance Agent OS connected (one-time OAuth) — not verified as done yet.
+
+**Style history:** N/A — no design work this session.
