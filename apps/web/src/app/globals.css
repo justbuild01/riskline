@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* No design tokens yet on purpose — those are added in the dedicated UI
+   session (ruleset Section 8). This is unstyled scaffolding. */
